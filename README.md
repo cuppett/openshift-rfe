@@ -5,6 +5,7 @@ A Claude Code plugin with skills for creating well-defined JIRA Feature issues f
 ## Skills
 
 - **`/feature-create-from`** — Fetch a strategy issue and all its linked RFEs, ask targeted questions to fill gaps, then draft and create Feature issues in the appropriate JIRA project.
+- **`/rfe-browse`** — Query the RFE project, classify results by Feature coverage, and identify which RFEs are ready to decompose. Use this to discover candidates before running `/feature-create-from`.
 
 ## Prerequisites
 
@@ -79,6 +80,29 @@ Add the plugin to your Claude Code settings (`.claude/settings.local.json`):
 Restart Claude Code. The `/feature-create-from` skill will be available.
 
 ## Usage
+
+### Discover RFEs to work on
+
+```
+/rfe-browse
+```
+
+Browse with filters:
+
+```
+/rfe-browse priority:Critical component:ROSA
+/rfe-browse unlinked
+/rfe-browse text:"managed cluster" limit:10
+```
+
+The skill will:
+1. Build a JQL query from your filters (or ask what you're looking for)
+2. Fetch results including linked-issue data
+3. Classify each RFE: no Features linked / partially covered / already decomposed
+4. Display a table; let you drill into individual RFEs for a readiness assessment
+5. Tell you to run `/feature-create-from <KEY>` when you're ready to act
+
+### Create Features from a specific issue
 
 ```
 /feature-create-from OCPSTRAT-2666

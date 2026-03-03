@@ -1,0 +1,14 @@
+{
+  "name": "rfe",
+  "owner": {
+    "name": "jjaggars"
+  },
+  "plugins": [
+    {
+      "name": "rfe",
+      "source": ".",
+      "description": "Skills for triaging RFEs and decomposing them into well-defined JIRA Features",
+      "version": "1.0.0"
+    }
+  ]
+}

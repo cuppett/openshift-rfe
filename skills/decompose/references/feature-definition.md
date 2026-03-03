@@ -71,7 +71,8 @@ Features start in `New` when the need is identified, move to `Refinement` when a
 
 **jira-cli corrupts wiki markup** when creating/updating issue descriptions. It converts `#` numbered list items to `h1.` headers, escapes hyphens and parentheses, and removes blank lines. **Always use the Python REST API for creating Features with formatted descriptions.**
 
-```python
+```bash
+uv run --with requests python3 - << 'EOF'
 import os, requests
 
 token = os.environ['JIRA_API_TOKEN']
@@ -92,6 +93,7 @@ resp = requests.post(
     json=payload
 )
 print(resp.json()['key'])  # e.g., ROSA-456
+EOF
 ```
 
 **Linking** (jira-cli works fine for link operations):

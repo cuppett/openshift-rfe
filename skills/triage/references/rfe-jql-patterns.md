@@ -2,7 +2,7 @@
 
 ## Base Query
 
-Every `rfe-browse` search starts from:
+Every `/rfe:triage` search starts from:
 
 ```
 project = RFE AND issuetype = "Feature Request"
@@ -12,13 +12,31 @@ Append filter clauses and sort order before executing.
 
 ---
 
+## RFE Project Status Values
+
+These are the **actual** workflow statuses in the `RFE` project (verified 2026-03-02):
+
+| Status | Category |
+|--------|----------|
+| `Approved` | Open |
+| `Refinement` | Open |
+| `Waiting` | Open |
+| `Backlog` | Open |
+| `Closed` | Terminal |
+
+**Do not** use `New`, `In Progress`, `Under Consideration`, or `Triaged` — they do not exist in this project and will cause a 400 error.
+
+To exclude terminal statuses, use `AND status not in ("Closed")` (simpler and future-proof against new open statuses being added).
+
+---
+
 ## Pre-built JQL Patterns
 
-### Open RFEs (default — all open statuses)
+### Open RFEs (default)
 
 ```
 project = RFE AND issuetype = "Feature Request"
-AND status in ("New", "In Progress", "Under Consideration", "Triaged")
+AND status not in ("Closed")
 ORDER BY priority ASC, votes DESC, created DESC
 ```
 
@@ -26,7 +44,7 @@ ORDER BY priority ASC, votes DESC, created DESC
 
 ```
 project = RFE AND issuetype = "Feature Request"
-AND status in ("New", "In Progress", "Under Consideration", "Triaged")
+AND status not in ("Closed")
 AND priority in (Critical, Major)
 ORDER BY priority ASC, votes DESC
 ```
@@ -35,7 +53,7 @@ ORDER BY priority ASC, votes DESC
 
 ```
 project = RFE AND issuetype = "Feature Request"
-AND status in ("New", "In Progress", "Under Consideration", "Triaged")
+AND status not in ("Closed")
 AND votes > 0
 ORDER BY votes DESC, priority ASC
 ```
@@ -53,7 +71,7 @@ ORDER BY updated DESC
 ```
 project = RFE AND issuetype = "Feature Request"
 AND component = "<COMPONENT-NAME>"
-AND status in ("New", "In Progress", "Under Consideration", "Triaged")
+AND status not in ("Closed")
 ORDER BY priority ASC, votes DESC
 ```
 
@@ -83,7 +101,7 @@ Use double quotes for multi-word phrases: `text ~ "managed cluster"`.
 project = RFE AND issuetype = "Feature Request"
 AND component = "<COMPONENT>"
 AND priority in (Critical, Major)
-AND status in ("New", "In Progress", "Under Consideration", "Triaged")
+AND status not in ("Closed")
 ORDER BY votes DESC, created DESC
 ```
 
@@ -106,20 +124,6 @@ ORDER BY votes DESC, created DESC
 
 ---
 
-## The `unlinked` Filter — Why It's Post-processing
-
-JQL has no operator to query "issues that have no linked issue of type Feature". The closest approximation (`issueFunction` in Jira's ScriptRunner) is not universally available.
-
-**The correct approach:**
-
-1. Run the JQL search requesting the `issuelinks` field.
-2. For each result, inspect `issuelinks` and check whether any linked issue has `issuetype.name == "Feature"`.
-3. Discard results that have one or more such links.
-
-This means the `maxResults` parameter applies **before** the post-filter. If you request 25 results and 20 have Features linked, you'll only display 5. When `unlinked` is active, increase `maxResults` (e.g., to 100) to improve yield.
-
----
-
 ## REST API Search Endpoint
 
 ```
@@ -135,7 +139,7 @@ GET https://issues.redhat.com/rest/api/2/search
 | `startAt` | int | Pagination offset (default 0) |
 | `fields` | comma-list | Fields to return; controls response size |
 
-**Recommended `fields` value for rfe-browse:**
+**Recommended `fields` value for `/rfe:triage`:**
 
 ```
 summary,status,priority,components,labels,votes,created,updated,issuelinks,description
@@ -143,7 +147,8 @@ summary,status,priority,components,labels,votes,created,updated,issuelinks,descr
 
 **Authentication:** Bearer token from `$JIRA_API_TOKEN`.
 
-```python
+```bash
+uv run --with requests python3 - << 'EOF'
 import os, requests
 
 token = os.environ['JIRA_API_TOKEN']
@@ -162,6 +167,7 @@ resp = requests.get(
 data = resp.json()
 # data['total']  — total matching issues
 # data['issues'] — list of issue objects
+EOF
 ```
 
 **Response structure per issue:**

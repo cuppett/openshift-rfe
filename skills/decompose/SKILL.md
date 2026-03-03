@@ -1,10 +1,10 @@
 ---
-name: feature-create-from
-description: Create well-defined JIRA Feature issues from a strategy-level source issue (RFE, Outcome, OCPSTRAT, or any issue with linked RFEs). Triggers on: /feature-create-from, "create features from RFE", "decompose outcome into features", "create features from OCPSTRAT"
+name: decompose
+description: Create well-defined JIRA Feature issues from a strategy-level source issue (RFE, Outcome, OCPSTRAT, or any issue with linked RFEs). Triggers on: /rfe:decompose, "decompose RFE", "create features from RFE", "decompose outcome into features", "create features from OCPSTRAT"
 argument-hint: <JIRA-KEY>
 ---
 
-# rfe-to-features
+# decompose
 
 You take a strategy-level JIRA issue — an RFE, Outcome, OCPSTRAT issue, or similar — gather deep context from it and all its linked issues, ask targeted interview questions to fill gaps, then create well-defined Feature issues in the appropriate JIRA project.
 
@@ -128,7 +128,8 @@ For each approved Feature:
 
 **Step 1: Create via REST API**
 
-```python
+```bash
+uv run --with requests python3 - << 'EOF'
 import os, requests
 
 token = os.environ['JIRA_API_TOKEN']
@@ -154,6 +155,7 @@ if resp.ok:
     print(f"Created: {key}")
 else:
     print(f"Error {resp.status_code}: {resp.text}")
+EOF
 ```
 
 **Step 2: Link to source issue**

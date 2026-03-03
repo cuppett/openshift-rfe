@@ -1,11 +1,11 @@
-# feature-create-from
+# rfe
 
-A Claude Code plugin with skills for creating well-defined JIRA Feature issues from higher-level strategy issues — RFEs, Outcomes, OCPSTRAT issues, or any issue with linked Feature Requests.
+A Claude Code plugin with skills for triaging RFEs and decomposing them into well-defined JIRA Feature issues.
 
 ## Skills
 
-- **`/feature-create-from`** — Fetch a strategy issue and all its linked RFEs, ask targeted questions to fill gaps, then draft and create Feature issues in the appropriate JIRA project.
-- **`/rfe-browse`** — Query the RFE project, classify results by Feature coverage, and identify which RFEs are ready to decompose. Use this to discover candidates before running `/feature-create-from`.
+- **`/rfe:triage`** — Query the RFE project, classify results by Feature coverage, and identify which RFEs are ready to decompose. Use this to discover candidates before running `/rfe:decompose`.
+- **`/rfe:decompose`** — Fetch a strategy issue and all its linked RFEs, ask targeted questions to fill gaps, then draft and create Feature issues in the appropriate JIRA project.
 
 ## Prerequisites
 
@@ -71,28 +71,28 @@ Add the plugin to your Claude Code settings (`.claude/settings.local.json`):
   "localMarketplaces": [
     {
       "type": "local",
-      "path": "/path/to/feature-create-from"
+      "path": "/path/to/rfe"
     }
   ]
 }
 ```
 
-Restart Claude Code. The `/feature-create-from` skill will be available.
+Restart Claude Code. The `/rfe:triage` and `/rfe:decompose` skills will be available.
 
 ## Usage
 
 ### Discover RFEs to work on
 
 ```
-/rfe-browse
+/rfe:triage
 ```
 
 Browse with filters:
 
 ```
-/rfe-browse priority:Critical component:ROSA
-/rfe-browse unlinked
-/rfe-browse text:"managed cluster" limit:10
+/rfe:triage priority:Critical component:ROSA
+/rfe:triage unlinked
+/rfe:triage text:"managed cluster" limit:10
 ```
 
 The skill will:
@@ -100,12 +100,12 @@ The skill will:
 2. Fetch results including linked-issue data
 3. Classify each RFE: no Features linked / partially covered / already decomposed
 4. Display a table; let you drill into individual RFEs for a readiness assessment
-5. Tell you to run `/feature-create-from <KEY>` when you're ready to act
+5. Tell you to run `/rfe:decompose <KEY>` when you're ready to act
 
 ### Create Features from a specific issue
 
 ```
-/feature-create-from OCPSTRAT-2666
+/rfe:decompose OCPSTRAT-2666
 ```
 
 The skill will:
@@ -119,8 +119,4 @@ The skill will:
 
 This plugin uses the JIRA REST API (via Python) rather than jira-cli for creating Feature issues. jira-cli escapes parentheses in issue bodies — `(text)` becomes `\(text\)` — which corrupts the `( ) Yes ( ) No ( ) N/A` checkboxes in the official Feature requirements table. It also converts `#` numbered list items into `h1.` headers.
 
-For this to work, `JIRA_API_TOKEN` must be set in your environment (see setup above). Python 3 and the `requests` library must be available:
-
-```bash
-pip3 install requests
-```
+For this to work, `JIRA_API_TOKEN` must be set in your environment (see setup above). Python 3 and `uv` must be available — `uv` handles the `requests` dependency automatically on each invocation, with no manual install required.

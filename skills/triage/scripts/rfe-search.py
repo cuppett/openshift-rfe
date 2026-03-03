@@ -24,21 +24,29 @@ import sys
 def main():
     parser = argparse.ArgumentParser(description="Search JIRA RFEs")
     parser.add_argument("--jql", required=True, help="JQL query string")
-    parser.add_argument("--limit", type=int, default=25, help="Max results (default 25)")
+    parser.add_argument(
+        "--limit", type=int, default=25, help="Max results (default 25)"
+    )
     args = parser.parse_args()
 
     token = os.environ.get("JIRA_API_TOKEN")
     if not token:
         print("ERROR: JIRA_API_TOKEN not set", file=sys.stderr)
         print("Set:      export JIRA_API_TOKEN=<your-PAT>", file=sys.stderr)
-        print("Generate: https://issues.redhat.com/secure/ViewProfile.jspa", file=sys.stderr)
+        print(
+            "Generate: https://issues.redhat.com/secure/ViewProfile.jspa",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     import requests
 
     resp = requests.get(
         "https://issues.redhat.com/rest/api/2/search",
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
         params={
             "jql": args.jql,
             "maxResults": args.limit,
@@ -71,19 +79,27 @@ def main():
 
         coverage = "none"
         if feature_links:
-            coverage = "partial" if status not in ("Closed", "Done", "Resolved") else "decomposed"
+            coverage = (
+                "partial"
+                if status not in ("Closed", "Done", "Resolved")
+                else "decomposed"
+            )
 
-        print(json.dumps({
-            "key": key,
-            "summary": f.get("summary", ""),
-            "status": status,
-            "priority": (f.get("priority") or {}).get("name", "Unknown"),
-            "votes": (f.get("votes") or {}).get("votes", 0),
-            "components": ", ".join(c["name"] for c in f.get("components", [])),
-            "updated": (f.get("updated") or "")[:10],
-            "feature_links": feature_links,
-            "coverage": coverage,
-        }))
+        print(
+            json.dumps(
+                {
+                    "key": key,
+                    "summary": f.get("summary", ""),
+                    "status": status,
+                    "priority": (f.get("priority") or {}).get("name", "Unknown"),
+                    "votes": (f.get("votes") or {}).get("votes", 0),
+                    "components": ", ".join(c["name"] for c in f.get("components", [])),
+                    "updated": (f.get("updated") or "")[:10],
+                    "feature_links": feature_links,
+                    "coverage": coverage,
+                }
+            )
+        )
 
 
 if __name__ == "__main__":

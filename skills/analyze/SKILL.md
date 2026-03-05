@@ -93,7 +93,7 @@ For each distinct component value in the data, compute:
 - **Count**: total RFEs in this component
 - **Priority breakdown**: count of Critical / Major / Minor / Undefined
 - **Vote total**: sum of all `votes` values
-- **Coverage breakdown**: count of `none` / `partial` / `decomposed`
+- **Coverage breakdown**: count of `none` (no Feature links) vs `partial` (has Feature links, treating `decomposed` the same as `partial` since the query excludes closed RFEs)
 
 RFEs with multiple components should appear in each component's group. RFEs with no component go into an "Unassigned" group.
 
@@ -138,13 +138,15 @@ Output a structured markdown report with the following sections:
 A summary table across all components:
 
 ```
-| Component   | RFEs | Critical | Major | Minor | Total Votes | None | Partial | Decomposed |
-|-------------|------|----------|-------|-------|-------------|------|---------|------------|
-| ROSA        |   42 |        5 |    18 |    19 |         287 |   28 |      10 |          4 |
-| HyperShift  |   31 |        3 |    12 |    16 |         198 |   19 |       8 |          4 |
-| ...         |      |          |       |       |             |      |         |            |
-| **Total**   |  xxx |       xx |    xx |    xx |         xxx |  xxx |     xxx |        xxx |
+| Component   | RFEs | Critical | Major | Minor | Total Votes | No Features | Has Features |
+|-------------|------|----------|-------|-------|-------------|-------------|--------------|
+| ROSA        |   42 |        5 |    18 |    19 |         287 |          28 |           14 |
+| HyperShift  |   31 |        3 |    12 |    16 |         198 |          19 |           12 |
+| ...         |      |          |       |       |             |             |              |
+| **Total**   |  xxx |       xx |    xx |    xx |         xxx |         xxx |          xxx |
 ```
+
+"No Features" = `coverage == "none"`. "Has Features" = `coverage == "partial"` or `"decomposed"` (both indicate Feature links exist; decomposed is not separately shown since the query excludes closed RFEs).
 
 ---
 

@@ -7,6 +7,7 @@ A Claude Code plugin with skills for triaging RFEs and decomposing them into wel
 - **`/rfe:init`** — Check and install prerequisites, configure your JIRA Personal Access Token, verify REST API access, and print a status summary. Run this first.
 - **`/rfe:triage`** — Query the RFE project, classify results by Feature coverage, and identify which RFEs are ready to decompose.
 - **`/rfe:decompose`** — Fetch a strategy issue and all its linked RFEs, conduct a targeted interview to fill gaps, draft Feature issues for review, then create them via the JIRA REST API.
+- **`/rfe:analyze`** — Fetch all RFEs from a configurable time window, group them by component, identify themes (clusters of RFEs addressing the same capability), and surface cross-component opportunities for combined Features.
 
 ## Prerequisites
 
@@ -154,6 +155,50 @@ Example output after creation:
 
 Links created:
 - ROSA-456 Implements OCPSTRAT-2666
+```
+
+### 4. Analyzing RFE themes
+
+Use `/rfe:analyze` to identify patterns and combined-effort opportunities across many RFEs:
+
+```
+/rfe:analyze
+```
+
+When run with no filters, it fetches all open RFEs from the last 18 months and analyzes them. You can narrow the scope:
+
+```
+/rfe:analyze period:6
+/rfe:analyze component:ROSA period:12
+/rfe:analyze status:Approved component:HyperShift
+```
+
+**Supported arguments:**
+
+| Argument | Example | Effect |
+|----------|---------|--------|
+| `period:<months>` | `period:12` | Time window in months (default 18) |
+| `component:<name>` | `component:ROSA` | Restrict to one component |
+| `status:<value>` | `status:Approved` | Restrict by workflow status |
+
+The skill works through five phases:
+
+1. **Query building** — constructs JQL from your arguments and the base RFE query
+2. **Data fetch** — paginates through all matching RFEs (warns if > 500)
+3. **Theme analysis** — groups by component, clusters RFEs by shared capability, finds cross-component patterns, flags high-value standalones
+4. **Report** — structured markdown with component breakdown table, themes by component, cross-component themes, high-value standalones, and top recommendations
+5. **Follow-up** — offers to drill into a theme, hand off to `/rfe:decompose`, or re-run with different filters
+
+Example report excerpt:
+
+```
+## ROSA
+
+### Theme: Auto-scaling for managed clusters
+RFEs: RFE-1234, RFE-5678, RFE-9012
+Combined votes: 34  |  Priority floor: Critical  |  Coverage: none
+Rationale: Three RFEs request dynamic node scaling; a single Feature covering
+the scaling framework would address all three.
 ```
 
 ## Technical notes

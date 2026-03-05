@@ -1,6 +1,6 @@
 {
   "name": "rfe",
-  "description": "Skills for triaging RFEs and decomposing them into well-defined JIRA Features",
+  "description": "Skills for triaging RFEs, decomposing them into well-defined JIRA Features, and analyzing themes across RFEs to identify combined effort opportunities",
   "version": "1.0.0",
   "author": {
     "name": "jjaggars"

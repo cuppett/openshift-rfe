@@ -8,58 +8,65 @@ A Feature is a **Level 4** issue in the Red Hat Jira hierarchy. It sits below Ou
 
 **Completion criteria:** A Feature is done when all dependent Epics have been delivered in a Release. Delivery creates the *ability for customers* to do something in the product more/better/differently.
 
-**Scope:** Fits within a Release. Scoped to a single product/engineering area. Can span multiple teams and potentially multiple releases.
+**Scope:** Fits within a Release. Scoped to a single product/engineering area. Can span multiple teams. Contains 3–8 Epics.
 
-**Not:** a bucket for unrelated Epics. Not intended to cross multiple Releases.
+**Not:** a bucket for unrelated Epics. Not a single-Epic effort. Not intended to cross multiple Releases.
 
 ## Required Elements for a Well-Defined Feature
 
 Before creating a Feature, gather or ask for all of these:
 
-1. **Feature Overview / Goal Summary** — an elevator pitch: what will this deliver to customers?
-2. **Goals (expected user outcomes)** — the observable functionality the user gains; what they can now do that they couldn't before
-3. **Requirements / Acceptance Criteria** — specific, testable conditions including non-functional requirements (security, reliability, performance, scalability). For each interface, note whether it is supported:
-   - ROSA CLI, OCM CLI, OCM UI, Terraform, CAPI
-   - FedRAMP supported?
-   - Already supported in OCP? (if yes, what version?)
-4. **Out of Scope** — explicit list of what this does NOT cover; prevents scope creep
-5. **Target Release** — which release or milestone; Features must fit within a Release
-6. **Background / Strategic Fit** — context explaining *why* this matters; link to source RFE or Outcome
-7. **Customer Considerations** — anything specific to customer environments or migration
-8. **Documentation Considerations** — what docs will be needed
-9. **Interoperability Considerations** — which other products or versions are affected
+1. **Market Problem** — who is affected, what pain they experience, why solving this matters now, what happens if we don't
+2. **Proposed Solution** — the capability being delivered (high level)
+3. **Strategic Value** — quantified customer value, business impact, competitive advantage, strategic alignment
+4. **Success Criteria** — measurable adoption, usage, outcome, and business metrics (not just "feature is done")
+5. **Requirements / Acceptance Criteria** — specific, testable conditions including non-functional requirements. For each interface, note whether it is supported: ROSA CLI, OCM CLI, OCM UI, Terraform, CAPI, FedRAMP, OCP version
+6. **Planned Epics** — 3–8 major work streams that will deliver this feature
+7. **Out of Scope** — explicit list of what this does NOT cover
+8. **Target Release / Timeline** — which release; milestones per quarter
+9. **Background** — context explaining *why* this matters; link to source RFE or Outcome
+10. **Customer Considerations** — anything specific to customer environments or migration
+11. **Documentation Considerations** — what docs will be needed
+12. **Interoperability Considerations** — which other products or versions are affected
 
 Optional but useful:
+- **Dependencies** — linked issues that must be delivered first
+- **Risks and Mitigation** — known risks and planned mitigations
 - **Use Cases** — main success scenarios and alternative flows
-- **Questions to Answer** — open refinement or architectural questions
 
 ## Project Routing
 
-Features go in **product-specific strategy projects**. For HCM:
+Features go in **product-specific strategy projects**. See `artifact-hierarchy.md` for full routing logic.
 
 | Product area | Feature project |
 |---|---|
+| OCP platform tools (oc-mirror, OLM, installer, oc) | `OCPSTRAT` |
 | ROSA (OpenShift on AWS) | `ROSA` |
 | ARO (Azure Red Hat OpenShift) | `ARO` |
 | GCP HCP | `GCP` |
 | Hybrid Cloud Console | `CRCPLAN` |
-| OCP / OpenShift platform | `OCPSTRAT` or `XCMSTRAT` |
-| Cross-functional / strategic | `XCMSTRAT` |
-| Control Plane | `CNTRLPLANE` |
+| Cross-cluster management strategy | `XCMSTRAT` |
+| Control Plane (HyperShift) | `CNTRLPLANE` |
 
-Features are **never** created in execution projects (OCM, SREP, OHSS, OCMUI, etc.).
+Features are **never** created in execution projects (OCM, SREP, OHSS, OCMUI, CLID, etc.).
 
 ## Required Custom Fields
 
-```bash
---custom security="Red Hat Employee"   # Required for ALL issues
-# Note: activity-type is NOT required for Features
+```python
+# In the REST API additional_fields dict:
+"customfield_12310031": [{"value": "Red Hat Employee"}]  # Security — REQUIRED for ALL issues
+"labels": ["ai-generated-jira"]                           # REQUIRED for all AI-created issues
 ```
 
-To link a Feature to its parent Outcome:
-```bash
---parent HCMSTRAT-123   # or OCPSTRAT-XXX, XCMSTRAT-XXX, etc.
-```
+### Parent Linking (use these to establish hierarchy)
+
+| Link | Field | Type | Usage |
+|------|-------|------|-------|
+| Feature → Outcome (parent) | `customfield_12313140` | String (issue key) | Set when Outcome is known |
+| Epic → Feature (parent) | `customfield_12313140` | String (issue key) | Set when creating child Epics |
+| Story/Task → Epic | `customfield_12311140` | String (issue key) | Epic Link |
+| Epic Name | `customfield_12311141` | String | Required when creating Epics; must match summary |
+| Target Version | `customfield_12319940` | Array of `{"id": "<version_id>"}` | Set target release |
 
 ## Feature Lifecycle
 
@@ -67,11 +74,11 @@ To link a Feature to its parent Outcome:
 
 Features start in `New` when the need is identified, move to `Refinement` when actively scoped with engineering, then `Backlog` when committed for a release.
 
-## CRITICAL: Issue Creation Must Use REST API
+## CRITICAL: Issue Creation Must Use REST API (not jira-cli)
 
-**jira-cli corrupts wiki markup** when creating/updating issue descriptions. It converts `#` numbered list items to `h1.` headers, escapes hyphens and parentheses, and removes blank lines. **Always use the Python REST API for creating Features with formatted descriptions.**
+**jira-cli corrupts wiki markup** when creating/updating issue descriptions. It converts `#` numbered list items to `h1.` headers, escapes hyphens and parentheses, and removes blank lines. **Always use the Python REST API for creating Features with formatted descriptions.** See `wiki-markup.md` for formatting syntax.
 
-```bash
+```python
 uv run --with requests python3 - << 'EOF'
 import os, requests
 
@@ -79,11 +86,12 @@ token = os.environ['JIRA_API_TOKEN']
 
 payload = {
     "fields": {
-        "project": {"key": "ROSA"},
+        "project": {"key": "OCPSTRAT"},
         "summary": "Feature summary here",
-        "description": "h1. Feature Overview\n\n...",  # Jira wiki markup
+        "description": "h2. Market Problem\n\n...",  # Jira wiki markup — use h2. for sections
         "issuetype": {"name": "Feature"},
         "customfield_12310031": [{"value": "Red Hat Employee"}],  # security
+        "labels": ["ai-generated-jira"],
     }
 }
 
@@ -92,12 +100,18 @@ resp = requests.post(
     headers={'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'},
     json=payload
 )
-print(resp.json()['key'])  # e.g., ROSA-456
+if resp.ok:
+    key = resp.json()['key']
+    print(f"Created: {key}")
+    print(f"URL: https://issues.redhat.com/browse/{key}")
+else:
+    print(f"Error {resp.status_code}: {resp.text}")
 EOF
 ```
 
-**Linking** (use REST API, same as issue creation):
-```bash
+### Linking a Feature to its parent Outcome
+
+```python
 uv run --with requests python3 - << 'EOF'
 import os, requests
 
@@ -106,7 +120,11 @@ token = os.environ['JIRA_API_TOKEN']
 resp = requests.post(
     'https://issues.redhat.com/rest/api/2/issueLink',
     headers={'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'},
-    json={"type": {"name": "Implements"}, "inwardIssue": {"key": "ROSA-456"}, "outwardIssue": {"key": "OCPSTRAT-2666"}}
+    json={
+        "type": {"name": "Implements"},
+        "inwardIssue": {"key": "<FEATURE-KEY>"},
+        "outwardIssue": {"key": "<OUTCOME-KEY>"}
+    }
 )
 if resp.ok:
     print("Link created")
@@ -117,18 +135,46 @@ EOF
 
 ## Official Feature Body Template (Jira Wiki Markup)
 
+Use `h2.` for major sections, `h3.` for sub-sections. Do not use Markdown formatting.
+
 ```
-h1. Feature Overview (aka. Goal Summary)
+<Brief one-paragraph overview of the feature and what it delivers.>
 
-[Elevator pitch: what significant capability will this provide to customers?]
+h2. Market Problem
 
-h1. Goals (aka. expected user outcomes)
+<Who is affected by this problem, what pain they experience today, why solving it matters now, and what happens if we don't solve it.>
 
-[The observable functionality the user now has as a result of this feature.]
+h2. Proposed Solution
 
-h1. Requirements (aka. Acceptance Criteria)
+<The capability being delivered — high level description of what oc-mirror / the product will do differently.>
 
-[Specific, testable conditions the feature must deliver. Include non-functional requirements: security, reliability, performance, maintainability, scalability, usability.]
+h2. Strategic Value
+
+h3. Customer Value
+* <Quantified benefit — e.g. "60% reduction in X", "eliminates manual Y">
+* <Quantified benefit>
+
+h3. Business Impact
+* <Revenue, cost reduction, competitive impact>
+* <Customer retention or deal impact>
+
+h3. Strategic Alignment
+<How this supports product/company strategy and roadmap.>
+
+h2. Success Criteria
+
+h3. Adoption
+* <Adoption metric with specific target — e.g. "50% of affected customers adopt within 6 months">
+
+h3. Outcomes
+* <Customer outcome metric — e.g. "40% reduction in support tickets for X">
+
+h3. Business
+* <Business metric — e.g. "Closes N blocked deals">
+
+h2. Requirements (aka. Acceptance Criteria)
+
+<Specific, testable conditions the feature must deliver. Include non-functional requirements: security, reliability, performance, maintainability, scalability, usability.>
 
 || Supported Clients || Option ||
 | Supported in ROSA CLI | ( ) Yes ( ) No ( ) N/A |
@@ -141,33 +187,48 @@ h1. Requirements (aka. Acceptance Criteria)
 || OCP Support || Option ||
 | Already supported in OCP? | ( ) Yes ( ) No ( ) N/A |
 
-h1. Use Cases (Optional)
+h2. Scope
 
-[Main success scenarios and alternative flows.]
+h3. Planned Epics
+* Epic 1: <name and brief description>
+* Epic 2: <name and brief description>
+* Epic 3: <name and brief description>
 
-h1. Questions to Answer (Optional)
+h3. Out of Scope
+* <Related work explicitly excluded from this Feature>
 
-[Open refinement or architectural questions before coding can begin.]
+h2. Timeline
 
-h1. Out of Scope
+* Total duration: <timeframe>
+* Target GA: <release / quarter>
 
-[High-level list of items explicitly out of scope.]
+h3. Milestones
+* Q1 <Year> (<release>): <major deliverable>
+* Q2 <Year> (<release>): <major deliverable>
 
-h1. Background
+h2. Background
 
-[Additional context to frame the feature. Link to source RFE, Outcome, or strategy issue.]
+<Additional context to frame the feature. Link to source RFE, Outcome, or strategy issue. Explain the history and why this is being worked now.>
 
-h1. Customer Considerations
+h2. Customer Considerations
 
-[Customer-specific considerations for design and delivery.]
+<Customer-specific considerations for design and delivery — migration paths, existing tooling impact, regulated environment concerns.>
 
-h1. Documentation Considerations
+h2. Documentation Considerations
 
-[What documentation will be needed to meet customer needs.]
+<What documentation will be needed to meet customer needs.>
 
-h1. Interoperability Considerations
+h2. Interoperability Considerations
 
-[Which other projects and versions does this impact?]
+<Which other projects and versions does this impact? What interoperability test scenarios should be factored in?>
+
+h2. Dependencies (if any)
+
+* [PROJ-XXX] - <what this depends on and why>
+
+h2. Risks (if any)
+
+* <Risk description> — Mitigation: <planned mitigation>
 ```
 
 ## Single Feature vs. Multiple Features
@@ -175,10 +236,10 @@ h1. Interoperability Considerations
 Create **multiple** Features when:
 - The source issue links to distinct RFEs solving different problems for different customer segments
 - Different owning teams/projects would deliver different parts
-- The scope is large enough that acceptance criteria would exceed 6–7 items
-- Two pieces could reasonably ship in different releases or go to different projects
+- The scope contains more than 8 Epics across distinct capability areas
+- Two pieces could reasonably ship in different releases
 
 Create a **single** Feature when:
 - The work is cohesive and one team/project owns it end-to-end
-- Acceptance criteria are 2–4 clear items
+- The Epic breakdown is 3–5 clear items
 - Splitting would create artificial dependencies

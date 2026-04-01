@@ -1,14 +1,18 @@
 ---
 name: decompose
-description: Create well-defined JIRA Feature issues from a strategy-level source issue (RFE, Outcome, OCPSTRAT, or any issue with linked RFEs). Triggers on: /rfe:decompose, "decompose RFE", "create features from RFE", "decompose outcome into features", "create features from OCPSTRAT"
+description: Create well-defined JIRA artifacts (Features or Initiatives) from a strategy-level source issue (RFE, Outcome, OCPSTRAT, or any issue with linked RFEs). Triggers on: /rfe:decompose, "decompose RFE", "create features from RFE", "decompose outcome into features", "create features from OCPSTRAT", "create initiative from RFE"
 argument-hint: <JIRA-KEY>
 ---
 
 # decompose
 
-You take a strategy-level JIRA issue — an RFE, Outcome, OCPSTRAT issue, or similar — gather deep context from it and all its linked issues, ask targeted interview questions to fill gaps, then create well-defined Feature issues in the appropriate JIRA project.
+You take a strategy-level JIRA issue — an RFE, Outcome, OCPSTRAT issue, or similar — gather deep context from it and all its linked issues, ask targeted interview questions to fill gaps, then create well-defined Feature or Initiative issues in the appropriate JIRA project.
 
-Read `references/feature-definition.md` now. It defines what a Feature must contain, the official body template, project routing rules, and the critical requirement to use the REST API (not jira-cli) for issue creation.
+Read these reference files now before proceeding:
+- `references/feature-definition.md` — Feature template, project routing, custom field IDs, and REST API creation pattern
+- `references/artifact-hierarchy.md` — when to create a Feature vs. Initiative vs. Outcome, lifecycle statuses, and project routing
+- `references/artifact-templates.md` — Initiative and Outcome body templates and REST API payloads
+- `references/wiki-markup.md` — Jira wiki markup syntax (required; never use Markdown in issue bodies)
 
 ---
 
@@ -79,21 +83,69 @@ EOF
 
 **Step 3: Synthesize context.**
 
-Organize what you've learned against the 9 required Feature elements from `references/feature-definition.md`:
+First, determine the **artifact type** for each piece of work using `references/artifact-hierarchy.md`:
 
-- Feature Overview / Goal Summary: [known / partial / unknown]
-- Goals / expected user outcomes: [known / partial / unknown]
-- Requirements / Acceptance Criteria: [known / partial / unknown]
+- Is this customer-facing (new capability customers will use directly)? → **Feature**
+- Is this architectural, infrastructure, or internal tooling (enables Red Hat associates)? → **Initiative**
+- Does it represent a measurable business outcome spanning multiple releases? → **Outcome** (rarely; confirm with PM)
+
+For each distinct artifact, assess the 9 required elements (from `references/feature-definition.md` for Features; `references/artifact-templates.md` for Initiatives/Outcomes):
+
+- Overview / Goal: [known / partial / unknown]
+- Goals / expected outcomes: [known / partial / unknown]
+- Requirements / Success Criteria: [known / partial / unknown]
 - Out of Scope: [known / partial / unknown]
 - Target Release: [known / partial / unknown]
 - Background / Strategic Fit: [known / partial / unknown]
-- Customer Considerations: [known / partial / unknown]
+- Customer or Stakeholder Considerations: [known / partial / unknown]
 - Documentation Considerations: [known / partial / unknown]
 - Interoperability Considerations: [known / partial / unknown]
 
 Also note:
-- How many distinct Features should be created? (separate RFEs → separate Features)
-- Which JIRA project(s) should own each Feature? (see project routing in reference doc)
+- How many distinct artifacts should be created? (separate RFEs → separate artifacts)
+- What type is each artifact? (Feature / Initiative / Outcome)
+- Which JIRA project(s) should own each? (see `references/artifact-hierarchy.md` project routing)
+
+---
+
+## Phase 1.5: Duplicate & Existing Work Detection
+
+Before drafting anything, search for existing Features and Initiatives that may already cover the work. Creating a duplicate wastes planning effort and fragments tracking.
+
+**Step 1: Search the target project for related Features/Initiatives.**
+
+```bash
+uv run --with requests python3 - << 'EOF'
+import os, requests
+
+token = os.environ['JIRA_API_TOKEN']
+project = '<PROJECT>'  # e.g. OCPSTRAT, XCMSTRAT, ROSA, etc.
+keywords = '<KEYWORD>'  # key terms from the RFE summary
+
+jql = f'project = {project} AND issuetype in (Feature, Initiative) AND text ~ "{keywords}" AND status != Closed ORDER BY updated DESC'
+
+resp = requests.get(
+    'https://issues.redhat.com/rest/api/2/search',
+    headers={'Authorization': f'Bearer {token}'},
+    params={'jql': jql, 'fields': 'summary,status,issuetype', 'maxResults': 20}
+)
+resp.raise_for_status()
+for issue in resp.json().get('issues', []):
+    f = issue['fields']
+    print(f"{issue['key']} [{f['issuetype']['name']}] ({f['status']['name']}) {f['summary']}")
+EOF
+```
+
+**Step 2: Evaluate results.**
+
+| Finding | Action |
+|---------|--------|
+| Exact or near-exact match (same capability) | Stop — link the RFE to the existing Feature; do not create a new one |
+| Partial overlap (some RFEs are covered) | Note which RFEs the existing Feature covers; only create new artifacts for the uncovered gap |
+| Adjacent work (related but distinct) | Note the relationship; plan to link the new artifact after creation |
+| No matches | Clear to proceed to Phase 2 |
+
+Report your findings to the user before continuing.
 
 ---
 
@@ -108,6 +160,7 @@ Ask up to 4 questions using AskUserQuestion, then ask a 5th separately if needed
 Good question framing:
 - "The source issue mentions X but doesn't clarify Y — what should the acceptance criteria be for Z?"
 - "Should this be one Feature or two? The RFE covers both A and B, which seem separable."
+- "This looks like it could be a Feature (customer-facing) or an Initiative (internal architectural work) — which is intended?"
 - "Which project should own this — ROSA or XCMSTRAT? (The issue involves cross-cutting concerns.)"
 - "What is the target release for this work? The source issue doesn't specify."
 
@@ -120,15 +173,28 @@ Poor question framing (avoid):
 
 ## Phase 3: Draft Features
 
-Using all gathered context plus the interview answers, draft each Feature.
+Using all gathered context plus the interview answers, draft each artifact.
 
-Apply the official template from `references/feature-definition.md`. Fill every section with real content — no placeholders. If a section is explicitly not applicable, say so briefly.
+Apply the correct template:
+- **Feature** → use the template from `references/feature-definition.md`
+- **Initiative** → use the template from `references/artifact-templates.md`
+- **Outcome** → use the template from `references/artifact-templates.md`
+
+Fill every section with real content — no placeholders. If a section is explicitly not applicable, say so briefly.
+
+Key quality bar:
+- **Market Problem** must answer: who is affected, what pain, why now, what if we don't solve it
+- **Success Criteria** must include quantified targets (%, time, deal count) — not just "feature is complete"
+- **Planned Epics** must list 3–8 concrete work streams by name
+- **Timeline** must include milestones by quarter/release
+- All body text must use Jira wiki markup (`h2.`, `*`, `||`) — never Markdown (see `references/wiki-markup.md`)
 
 Present the draft(s) to the user:
 
 ```
-## Draft: [Feature Title]
-**Project:** [ROSA / XCMSTRAT / etc.]
+## Draft: [Artifact Title]
+**Type:** [Feature / Initiative / Outcome]
+**Project:** [ROSA / XCMSTRAT / HCMPE / etc.]
 **Summary:** [one-line title]
 
 [Full body in Jira wiki markup]
@@ -140,11 +206,13 @@ Ask the user to confirm or request revisions before proceeding to creation. Do n
 
 ## Phase 4: Create in JIRA
 
-**CRITICAL:** Use the Python REST API for creation — jira-cli corrupts wiki markup formatting (converts numbered lists to headers, escapes hyphens). See `references/feature-definition.md` for the exact pattern.
+**CRITICAL:** Use the Python REST API for creation — jira-cli corrupts wiki markup formatting (converts numbered lists to headers, escapes hyphens). See `references/feature-definition.md` and `references/artifact-templates.md` for the exact patterns per artifact type.
 
-For each approved Feature:
+For each approved artifact:
 
 **Step 1: Create via REST API**
+
+Use the payload from the matching template reference (`feature-definition.md` for Features; `artifact-templates.md` for Initiatives/Outcomes). Set `issuetype.name` to `"Feature"`, `"Initiative"`, or `"Outcome"` as appropriate.
 
 ```bash
 uv run --with requests python3 - << 'EOF'
@@ -157,8 +225,9 @@ payload = {
         "project": {"key": "<PROJECT>"},
         "summary": "<SUMMARY>",
         "description": """<WIKI MARKUP BODY>""",
-        "issuetype": {"name": "Feature"},
-        "customfield_12310031": [{"value": "Red Hat Employee"}],
+        "issuetype": {"name": "<Feature|Initiative|Outcome>"},
+        "customfield_12310031": [{"value": "Red Hat Employee"}],  # security — required
+        "labels": ["ai-generated-jira"],                          # required for AI-created issues
     }
 }
 
@@ -219,14 +288,16 @@ EOF
 **Step 4: Report results**
 
 ```
-## Created Features
+## Created Artifacts
 
-| Key | Summary | Project | Link |
-|-----|---------|---------|------|
-| ROSA-456 | ... | ROSA | https://issues.redhat.com/browse/ROSA-456 |
+| Key | Type | Summary | Project | Link |
+|-----|------|---------|---------|------|
+| ROSA-456 | Feature | ... | ROSA | https://issues.redhat.com/browse/ROSA-456 |
+| ROSA-457 | Initiative | ... | ROSA | https://issues.redhat.com/browse/ROSA-457 |
 
 Links created:
 - ROSA-456 Implements OCPSTRAT-2666
+- ROSA-457 Implements OCPSTRAT-2666
 ```
 
 ---

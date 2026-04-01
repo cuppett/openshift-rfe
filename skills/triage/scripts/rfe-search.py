@@ -53,28 +53,23 @@ def main():
     fields = "summary,status,priority,components,labels,votes,created,updated,issuelinks,description"
 
     if args.all:
-        # Paginate through all results
-        start_at = 0
-        total = None
+        # Paginate through all results using nextPageToken
         issues = []
+        next_page_token = None
 
         while True:
-            page_size = 100
-            if total is not None:
-                remaining = total - start_at
-                if remaining <= 0:
-                    break
-                page_size = min(100, remaining)
+            params = {
+                "jql": args.jql,
+                "maxResults": 100,
+                "fields": fields,
+            }
+            if next_page_token:
+                params["nextPageToken"] = next_page_token
 
             resp = requests.get(
-                "https://issues.redhat.com/rest/api/2/search",
+                "https://issues.redhat.com/rest/api/3/search/jql",
                 headers=headers,
-                params={
-                    "jql": args.jql,
-                    "maxResults": page_size,
-                    "startAt": start_at,
-                    "fields": fields,
-                },
+                params=params,
             )
 
             if not resp.ok:
@@ -82,16 +77,17 @@ def main():
                 sys.exit(1)
 
             data = resp.json()
-            total = data["total"]
-            page_issues = data["issues"]
+            page_issues = data.get("issues", [])
             issues.extend(page_issues)
-            start_at += len(page_issues)
 
-            if start_at >= total or not page_issues:
+            if data.get("isLast", True) or not page_issues:
+                break
+            next_page_token = data.get("nextPageToken")
+            if not next_page_token:
                 break
     else:
         resp = requests.get(
-            "https://issues.redhat.com/rest/api/2/search",
+            "https://issues.redhat.com/rest/api/3/search/jql",
             headers=headers,
             params={
                 "jql": args.jql,
@@ -105,10 +101,9 @@ def main():
             sys.exit(1)
 
         data = resp.json()
-        issues = data["issues"]
-        total = data["total"]
+        issues = data.get("issues", [])
 
-    print(f"Total matches: {total} (showing {len(issues)})")
+    print(f"Total: {len(issues)}")
     print()
 
     for issue in issues:
@@ -133,7 +128,21 @@ def main():
                 else "decomposed"
             )
 
-        description = (f.get("description") or "")[:500]
+        raw_desc = f.get("description") or ""
+        if isinstance(raw_desc, dict):
+            # ADF format — extract plain text from content nodes
+            def extract_text(node):
+                if isinstance(node, str):
+                    return node
+                if isinstance(node, dict):
+                    if node.get("type") == "text":
+                        return node.get("text", "")
+                    return "".join(extract_text(c) for c in node.get("content", []))
+                if isinstance(node, list):
+                    return "".join(extract_text(c) for c in node)
+                return ""
+            raw_desc = extract_text(raw_desc)
+        description = raw_desc[:500]
 
         print(
             json.dumps(
